@@ -1,0 +1,41 @@
+.errorState {
+  width: 100%;
+  min-height: 296px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  padding: 2.5rem 2rem;
+}
+
+.errMsg {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #ef4444;
+  text-align: center;
+  max-width: 320px;
+}
+
+.retryBtn {
+  background-color: var(--primary);
+  color: #f9fafb;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.retryBtn:hover {
+  opacity: 0.88;
+}
+
+@media (max-width: 480px) {
+  .errorState {
+    min-height: 260px;
+    padding: 2rem 1.25rem;
+  }
+}

@@ -1,0 +1,52 @@
+.header {
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  transition: background-color 0.25s, border-color 0.25s;
+}
+
+.nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.logoText {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.themeBtn {
+  background-color: var(--header-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, border-color 0.25s;
+  line-height: 0;
+}
+
+.themeBtn:hover {
+  background-color: var(--border);
+}
+
+@media (max-width: 480px) {
+  .nav {
+    padding: 1rem;
+  }
+}

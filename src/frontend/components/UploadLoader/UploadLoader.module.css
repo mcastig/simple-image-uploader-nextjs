@@ -1,0 +1,56 @@
+.uploading {
+  width: 100%;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 80px;
+}
+
+.uploadLabel {
+  font-size: 0.875rem;
+  font-weight: 300;
+  color: var(--text-muted);
+}
+
+.uploadLabel strong {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.track {
+  width: 100%;
+  max-width: 320px;
+  height: 6px;
+  background-color: var(--border);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 40%;
+  background-color: var(--primary);
+  border-radius: 9999px;
+  animation: indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .uploading {
+    padding: 32px 1.5rem;
+  }
+}
