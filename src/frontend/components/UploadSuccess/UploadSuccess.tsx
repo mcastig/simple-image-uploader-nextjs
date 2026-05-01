@@ -17,12 +17,11 @@ export default function UploadSuccess({
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
-    const url = `${window.location.origin}${uploadedUrl}`;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(uploadedUrl);
     } catch {
       const el = document.createElement("textarea");
-      el.value = url;
+      el.value = uploadedUrl;
       document.body.appendChild(el);
       el.select();
       document.execCommand("copy");

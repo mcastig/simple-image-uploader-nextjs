@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import UploadSuccess from "@/frontend/components/UploadSuccess/UploadSuccess";
 
 const defaultProps = {
-  uploadedUrl: "/uploads/test.jpg",
+  uploadedUrl: "https://example.blob.vercel-storage.com/test.jpg",
   uploadedFilename: "test.jpg",
   onReset: jest.fn(),
 };
@@ -29,7 +29,7 @@ describe("UploadSuccess", () => {
     render(<UploadSuccess {...defaultProps} />);
     const img = screen.getByAltText("Uploaded") as HTMLImageElement;
     expect(img).toBeInTheDocument();
-    expect(img.getAttribute("src")).toContain("/uploads/test.jpg");
+    expect(img.getAttribute("src")).toContain("test.jpg");
   });
 
   test("renders Share and Download buttons", () => {
@@ -67,7 +67,7 @@ describe("UploadSuccess", () => {
       expect(screen.getByText("Copied!")).toBeInTheDocument(),
     );
     expect(writeText).toHaveBeenCalledWith(
-      `${window.location.origin}/uploads/test.jpg`,
+      "https://example.blob.vercel-storage.com/test.jpg",
     );
 
     act(() => jest.advanceTimersByTime(3000));

@@ -1,4 +1,4 @@
-import { writeFile, readFile, mkdir } from "@/backend/lib/fsPromises";
+import { put, list } from "@vercel/blob";
 import path from "path";
 
 const MAX_SIZE = 2 * 1024 * 1024;
@@ -15,8 +15,6 @@ const MIME_TYPES: Record<string, string> = {
   png: "image/png",
   gif: "image/gif",
 };
-
-const uploadsDir = () => path.join(process.cwd(), "public", "uploads");
 
 export type SaveImageResult =
   | { ok: true; url: string; filename: string }
@@ -36,17 +34,13 @@ export async function saveImage(file: File): Promise<SaveImageResult> {
   }
 
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const dir = uploadsDir();
 
   try {
-    await mkdir(dir, { recursive: true });
-    const bytes = await file.arrayBuffer();
-    await writeFile(path.join(dir, filename), Buffer.from(bytes));
+    const blob = await put(filename, file, { access: "public" });
+    return { ok: true, url: blob.url, filename };
   } catch {
     return { ok: false, error: "Failed to save file.", status: 500 };
   }
-
-  return { ok: true, url: `/uploads/${filename}`, filename };
 }
 
 export type GetImageResult =
@@ -55,18 +49,25 @@ export type GetImageResult =
 
 export async function getImage(filename: string): Promise<GetImageResult> {
   const safeName = path.basename(filename);
-  const filepath = path.join(uploadsDir(), safeName);
 
-  let buffer: Buffer;
   try {
-    buffer = await readFile(filepath);
+    const { blobs } = await list({ prefix: safeName, limit: 1 });
+    if (!blobs.length) {
+      return { ok: false, error: "Not found.", status: 404 };
+    }
+
+    const response = await fetch(blobs[0].url);
+    if (!response.ok) {
+      return { ok: false, error: "Not found.", status: 404 };
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    /* c8 ignore next */
+    const ext = safeName.split(".").pop()?.toLowerCase() ?? "";
+    const contentType = MIME_TYPES[ext] ?? "application/octet-stream";
+
+    return { ok: true, buffer, contentType, filename: safeName };
   } catch {
     return { ok: false, error: "Not found.", status: 404 };
   }
-
-  /* c8 ignore next */
-  const ext = safeName.split(".").pop()?.toLowerCase() ?? "";
-  const contentType = MIME_TYPES[ext] ?? "application/octet-stream";
-
-  return { ok: true, buffer, contentType, filename: safeName };
 }

@@ -25,7 +25,6 @@ const getConfig = async (): Promise<Config> => {
       "src/**/*.{ts,tsx}",
       "!src/**/*.d.ts",
       "!src/**/*.test.{ts,tsx}",
-      "!src/backend/lib/fsPromises.ts",
     ],
     coverageProvider: "v8",
     coverageThreshold: {

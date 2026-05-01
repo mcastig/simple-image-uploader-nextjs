@@ -1,23 +1,17 @@
-jest.mock("@/backend/lib/fsPromises", () => ({
-  mkdir: jest.fn(),
-  writeFile: jest.fn(),
-  readFile: jest.fn(),
+jest.mock("@vercel/blob", () => ({
+  put: jest.fn(),
+  list: jest.fn(),
 }));
 
 import { saveImage, getImage } from "@/backend/services/imageService";
-import * as fsMod from "@/backend/lib/fsPromises";
+import { put, list } from "@vercel/blob";
 
-const fsMock = fsMod as {
-  mkdir: jest.MockedFunction<typeof fsMod.mkdir>;
-  writeFile: jest.MockedFunction<typeof fsMod.writeFile>;
-  readFile: jest.MockedFunction<typeof fsMod.readFile>;
-};
+const mockedPut = jest.mocked(put);
+const mockedList = jest.mocked(list);
 
 describe("saveImage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    fsMock.mkdir.mockResolvedValue(undefined);
-    fsMock.writeFile.mockResolvedValue(undefined);
   });
 
   test("returns 400 for invalid file type", async () => {
@@ -41,8 +35,8 @@ describe("saveImage", () => {
     });
   });
 
-  test("returns 500 when mkdir throws", async () => {
-    fsMock.mkdir.mockRejectedValue(new Error("permission denied"));
+  test("returns 500 when put throws", async () => {
+    mockedPut.mockRejectedValue(new Error("Blob error"));
     const file = new File(["content"], "test.jpg", { type: "image/jpeg" });
     const result = await saveImage(file);
     expect(result).toEqual({
@@ -52,28 +46,22 @@ describe("saveImage", () => {
     });
   });
 
-  test("returns 500 when writeFile throws", async () => {
-    fsMock.writeFile.mockRejectedValue(new Error("disk full"));
-    const file = new File(["content"], "test.png", { type: "image/png" });
-    const result = await saveImage(file);
-    expect(result).toEqual({
-      ok: false,
-      error: "Failed to save file.",
-      status: 500,
-    });
-  });
-
-  test("saves a jpg file and returns url and filename", async () => {
+  test("saves a jpg file and returns blob url and filename", async () => {
+    const blobUrl = "https://example.blob.vercel-storage.com/photo.jpg";
+    mockedPut.mockResolvedValue({ url: blobUrl } as ReturnType<typeof put> extends Promise<infer T> ? T : never);
     const file = new File(["img"], "photo.jpg", { type: "image/jpeg" });
     const result = await saveImage(file);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.url).toMatch(/^\/uploads\/.+\.jpg$/);
+      expect(result.url).toBe(blobUrl);
       expect(result.filename).toMatch(/\.jpg$/);
     }
   });
 
   test("saves a png file", async () => {
+    mockedPut.mockResolvedValue({
+      url: "https://example.blob.vercel-storage.com/photo.png",
+    } as ReturnType<typeof put> extends Promise<infer T> ? T : never);
     const file = new File(["img"], "photo.png", { type: "image/png" });
     const result = await saveImage(file);
     expect(result.ok).toBe(true);
@@ -83,6 +71,9 @@ describe("saveImage", () => {
   });
 
   test("saves a gif file", async () => {
+    mockedPut.mockResolvedValue({
+      url: "https://example.blob.vercel-storage.com/photo.gif",
+    } as ReturnType<typeof put> extends Promise<infer T> ? T : never);
     const file = new File(["img"], "photo.gif", { type: "image/gif" });
     const result = await saveImage(file);
     expect(result.ok).toBe(true);
@@ -93,56 +84,104 @@ describe("saveImage", () => {
 });
 
 describe("getImage", () => {
+  let fetchSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    fetchSpy = jest.spyOn(global, "fetch");
   });
 
-  test("returns 404 when file is not found", async () => {
-    fsMock.readFile.mockRejectedValue(
-      Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
-    );
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  test("returns 404 when no blobs match filename", async () => {
+    mockedList.mockResolvedValue({ blobs: [] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
     const result = await getImage("missing.jpg");
     expect(result).toEqual({ ok: false, error: "Not found.", status: 404 });
   });
 
+  test("returns 404 when fetch response is not ok", async () => {
+    const blobUrl = "https://example.blob.vercel-storage.com/photo.jpg";
+    mockedList.mockResolvedValue({ blobs: [{ url: blobUrl }] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
+    fetchSpy.mockResolvedValue({ ok: false } as Response);
+    const result = await getImage("photo.jpg");
+    expect(result).toEqual({ ok: false, error: "Not found.", status: 404 });
+  });
+
+  test("returns 404 when list throws", async () => {
+    mockedList.mockRejectedValue(new Error("Blob error"));
+    const result = await getImage("photo.jpg");
+    expect(result).toEqual({ ok: false, error: "Not found.", status: 404 });
+  });
+
   test("returns buffer and image/jpeg content-type for .jpg", async () => {
-    const buf = Buffer.from("fake jpeg data");
-    fsMock.readFile.mockResolvedValue(buf);
+    const blobUrl = "https://example.blob.vercel-storage.com/photo.jpg";
+    const arrayBuffer = new ArrayBuffer(8);
+    mockedList.mockResolvedValue({ blobs: [{ url: blobUrl }] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      arrayBuffer: jest.fn().mockResolvedValue(arrayBuffer),
+    } as unknown as Response);
     const result = await getImage("photo.jpg");
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.buffer).toBe(buf);
       expect(result.contentType).toBe("image/jpeg");
       expect(result.filename).toBe("photo.jpg");
     }
   });
 
   test("returns image/jpeg content-type for .jpeg", async () => {
-    fsMock.readFile.mockResolvedValue(Buffer.from("data"));
+    const blobUrl = "https://example.blob.vercel-storage.com/photo.jpeg";
+    mockedList.mockResolvedValue({ blobs: [{ url: blobUrl }] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(4)),
+    } as unknown as Response);
     const result = await getImage("photo.jpeg");
     expect(result.ok && result.contentType).toBe("image/jpeg");
   });
 
   test("returns image/png content-type for .png", async () => {
-    fsMock.readFile.mockResolvedValue(Buffer.from("data"));
+    const blobUrl = "https://example.blob.vercel-storage.com/photo.png";
+    mockedList.mockResolvedValue({ blobs: [{ url: blobUrl }] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(4)),
+    } as unknown as Response);
     const result = await getImage("photo.png");
     expect(result.ok && result.contentType).toBe("image/png");
   });
 
   test("returns image/gif content-type for .gif", async () => {
-    fsMock.readFile.mockResolvedValue(Buffer.from("data"));
+    const blobUrl = "https://example.blob.vercel-storage.com/photo.gif";
+    mockedList.mockResolvedValue({ blobs: [{ url: blobUrl }] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(4)),
+    } as unknown as Response);
     const result = await getImage("photo.gif");
     expect(result.ok && result.contentType).toBe("image/gif");
   });
 
   test("returns application/octet-stream for unknown extension", async () => {
-    fsMock.readFile.mockResolvedValue(Buffer.from("data"));
+    const blobUrl = "https://example.blob.vercel-storage.com/file.bin";
+    mockedList.mockResolvedValue({ blobs: [{ url: blobUrl }] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(4)),
+    } as unknown as Response);
     const result = await getImage("file.bin");
     expect(result.ok && result.contentType).toBe("application/octet-stream");
   });
 
   test("strips path traversal via path.basename", async () => {
-    fsMock.readFile.mockResolvedValue(Buffer.from("data"));
+    const blobUrl = "https://example.blob.vercel-storage.com/passwd";
+    mockedList.mockResolvedValue({ blobs: [{ url: blobUrl }] } as unknown as ReturnType<typeof list> extends Promise<infer T> ? T : never);
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(4)),
+    } as unknown as Response);
     const result = await getImage("../../../etc/passwd");
     expect(result.ok).toBe(true);
     if (result.ok) {
