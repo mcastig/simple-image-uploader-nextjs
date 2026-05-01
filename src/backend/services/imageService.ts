@@ -38,7 +38,8 @@ export async function saveImage(file: File): Promise<SaveImageResult> {
   try {
     const blob = await put(filename, file, { access: "public" });
     return { ok: true, url: blob.url, filename };
-  } catch {
+  } catch (err) {
+    console.error("[saveImage] put failed:", err);
     return { ok: false, error: "Failed to save file.", status: 500 };
   }
 }
