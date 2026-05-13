@@ -36,6 +36,7 @@ describe("saveImage", () => {
   });
 
   test("returns 500 when put throws", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
     mockedPut.mockRejectedValue(new Error("Blob error"));
     const file = new File(["content"], "test.jpg", { type: "image/jpeg" });
     const result = await saveImage(file);
@@ -44,6 +45,11 @@ describe("saveImage", () => {
       error: "Failed to save file.",
       status: 500,
     });
+    expect(consoleError).toHaveBeenCalledWith(
+      "[saveImage] put failed:",
+      expect.any(Error),
+    );
+    consoleError.mockRestore();
   });
 
   test("saves a jpg file and returns blob url and filename", async () => {
